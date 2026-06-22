@@ -50,3 +50,12 @@ Desktop.ini
 test_output.*
 test_*.pdf
 dataset/
+
+# Playwright / dev artifacts
+.playwright-mcp/
+_tmp.*
+# Stray screenshots in repo root (keep the curated screenshots/ folder)
+/shot-*.png
+/v2-*.png
+/lk-vision-*.png
+/pdf_preview*.png

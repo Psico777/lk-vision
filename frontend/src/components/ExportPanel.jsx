@@ -1,6 +1,5 @@
 /**
- * EMFOX OMS - ExportPanel Component
- * Panel de datos de consignatario y botón de exportación a Excel.
+ * LK VISION - ExportPanel Component
  */
 import React, { useState } from 'react';
 import { FileSpreadsheet, Download, Loader2, FilePdf } from './Icons.jsx';

@@ -1,8 +1,5 @@
 """
-EMFOX OMS v3.0 - Smart Crop Module (AI-Enhanced with Local Vision)
-===================================================================
-Enhanced product detection pipeline:
-  1. Ollama Vision (moondream) — local AI bounding box detection (0 API cost)
+LK VISION - Smart Crop Module (AI-Enhanced with Local Vision)
   2. Gemini AI bboxes (if available from upstream)
   3. OpenCV multi-strategy contour detection
   4. Intelligent grid splitting

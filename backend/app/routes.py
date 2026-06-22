@@ -1,15 +1,13 @@
 """
-EMFOX OMS v2 - API Routes (FastAPI)
-=====================================
-Complete CRUD for projects and products, WebSocket for real-time
-collaboration, image upload + AI processing with smart crop,
-dynamic exchange rate recalculation, and Excel export.
+LK VISION - API Routes (FastAPI)
 """
 
 import os
 import io
+import csv
 import uuid
 import shutil
+import asyncio
 from pathlib import Path
 from typing import List, Optional
 from datetime import date, datetime, timezone
@@ -19,16 +17,17 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import get_db, Project, Product, init_db
+from app.database import get_db, Project, Product, init_db, CompanySettings, get_company_settings
 from app.schemas import (
     ProcessingResponse, ExportRequest, ProductRow, RecalculateRequest,
     BulkRecalculateRequest, ProjectCreate, ProjectUpdate, ProjectSummary,
+    CompanySettingsUpdate, ImportCalcRequest,
 )
 from app.modules.gemini_vision import gemini_service
 from app.modules.business_logic import processor
-from app.modules.excel_export import generate_emfox_excel
+from app.modules.excel_export import generate_excel
 from app.modules.smart_crop import crop_product_from_image, create_thumbnail_from_full_image, detect_and_crop_products, manual_crop
-from app.modules.pdf_export import excel_to_pdf
+from app.modules.pdf_export import generate_pdf
 from app.ws_manager import ws_manager
 
 router = APIRouter(prefix="/api", tags=["OMS"])
@@ -37,8 +36,7 @@ UPLOAD_DIR = Path(settings.upload_dir)
 UPLOAD_DIR.mkdir(exist_ok=True)
 (UPLOAD_DIR / "crops").mkdir(exist_ok=True)
 
-# Initialize database tables on import
-init_db()
+# init_db() is called in main.py — no need to repeat here
 
 
 # ============================================================
@@ -215,22 +213,14 @@ async def apply_manual_crop(project_id: int, product_uid: str, payload: dict, db
     if width <= 0 or height <= 0:
         raise HTTPException(400, "Invalid crop dimensions")
 
-    # Resolve source_url to a local path
-    # source_url may be /uploads/... or /uploads/crops/...
     local_path = None
     if source_url.startswith("/uploads/"):
-        local_path = str(UPLOAD_DIR / source_url[len("/uploads/"):])
-    elif source_url.startswith("http"):
-        # Download to temp file
-        import tempfile, requests as _req
-        resp = _req.get(source_url, timeout=30)
-        resp.raise_for_status()
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
-            tmp.write(resp.content)
-            local_path = tmp.name
+        candidate = (UPLOAD_DIR / source_url[len("/uploads/"):]).resolve()
+        if str(candidate).startswith(str(UPLOAD_DIR.resolve())):
+            local_path = str(candidate)
 
     if not local_path or not os.path.exists(local_path):
-        raise HTTPException(400, f"Source image not found: {source_url}")
+        raise HTTPException(400, "Source image not found")
 
     try:
         crop_url = manual_crop(local_path, x, y, width, height, product_uid)
@@ -505,8 +495,12 @@ async def upload_and_process(
             total_cbm=round(total_cbm_all, 4),
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(500, f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Error procesando imágenes: {str(e)}")
 
 
 # ============================================================
@@ -535,59 +529,213 @@ async def recalculate_product(request: RecalculateRequest):
     return updated
 
 
+def _slug(name: str) -> str:
+    import re
+    s = re.sub(r"[^A-Za-z0-9]+", "_", (name or "LK_VISION")).strip("_")
+    return s or "LK_VISION"
+
+
 @router.post("/export")
-async def export_excel(data: ExportRequest):
-    """Generate and download Excel with EMFOX format and embedded images."""
+async def export_excel(data: ExportRequest, db: Session = Depends(get_db)):
+    """Generate and download Excel with company branding and embedded images."""
     if not data.products:
         raise HTTPException(400, "No hay productos para exportar")
     if not data.date:
         data.date = date.today().strftime("%d/%m/%Y")
     try:
-        buffer = generate_emfox_excel(data)
-        filename = f"EMFOX_ListaProductos_{date.today().strftime('%Y%m%d')}.xlsx"
+        company = get_company_settings(db).to_dict()
+        buffer = generate_excel(data, company)
+        filename = f"{_slug(company['company_name'])}_{date.today().strftime('%Y%m%d')}.xlsx"
         return StreamingResponse(
             buffer,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     except Exception as e:
+        import traceback; traceback.print_exc()
         raise HTTPException(500, f"Error generando Excel: {str(e)}")
 
 
 @router.post("/export-pdf")
-async def export_pdf(data: ExportRequest):
-    """Generate Excel, convert to PDF via iLovePDF, and download."""
+async def export_pdf(data: ExportRequest, db: Session = Depends(get_db)):
+    """Generate a professional PDF locally (reportlab) with company branding."""
     if not data.products:
         raise HTTPException(400, "No hay productos para exportar")
     if not data.date:
         data.date = date.today().strftime("%d/%m/%Y")
     try:
-        # First generate the Excel
-        excel_buffer = generate_emfox_excel(data)
-
-        # Convert to PDF via iLovePDF API
-        pdf_bytes = await excel_to_pdf(excel_buffer)
-
-        filename = f"EMFOX_ListaProductos_{date.today().strftime('%Y%m%d')}.pdf"
+        company = get_company_settings(db).to_dict()
+        pdf_bytes = await asyncio.to_thread(generate_pdf, data, company)
+        filename = f"{_slug(company['company_name'])}_{date.today().strftime('%Y%m%d')}.pdf"
         return StreamingResponse(
             io.BytesIO(pdf_bytes),
             media_type="application/pdf",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
-    except ValueError as e:
-        raise HTTPException(400, str(e))
     except Exception as e:
+        import traceback; traceback.print_exc()
         raise HTTPException(500, f"Error generando PDF: {str(e)}")
 
 
 @router.get("/config")
-async def get_config():
+async def get_config(db: Session = Depends(get_db)):
+    company = get_company_settings(db).to_dict()
     return {
         "cny_to_usd_rate": settings.cny_to_usd_rate,
         "next_product_code": settings.next_product_code,
         "gemini_model": settings.gemini_model,
-        "company": "EMFOX YIWU TRADE CO., LTD",
+        "ai_enabled": gemini_service.client is not None,
+        "company": company,
     }
+
+
+# ============================================================
+# COMPANY SETTINGS (white-label branding)
+# ============================================================
+@router.get("/company-settings")
+async def read_company_settings(db: Session = Depends(get_db)):
+    return get_company_settings(db).to_dict()
+
+
+@router.put("/company-settings")
+async def update_company_settings(data: CompanySettingsUpdate, db: Session = Depends(get_db)):
+    cs = get_company_settings(db)
+    for key, value in data.model_dump(exclude_unset=True).items():
+        setattr(cs, key, value)
+    db.commit()
+    db.refresh(cs)
+    return cs.to_dict()
+
+
+# ============================================================
+# IMPORT COST CALCULATOR (flete, seguro, arancel, IGV → landed cost)
+# ============================================================
+@router.post("/import-calc")
+async def import_calculator(data: ImportCalcRequest):
+    """Calcula el costo total de importacion (landed cost) por producto."""
+    results = []
+    totals = {"fob": 0.0, "freight": 0.0, "insurance": 0.0,
+              "customs": 0.0, "igv": 0.0, "landed": 0.0, "cbm": 0.0}
+
+    for p in data.products:
+        fob = p.total_usd or 0.0
+        cbm = p.cbm_total or 0.0
+        freight = round(cbm * data.freight_per_cbm, 2)
+        insurance = round(fob * data.insurance_rate / 100, 2)
+        cif = fob + freight + insurance
+        customs = round(cif * data.customs_rate / 100, 2)
+        igv = round((cif + customs) * data.igv_rate / 100, 2)
+        landed = round(cif + customs + igv, 2)
+        qty = p.quantity_total or 0
+        unit_landed = round(landed / qty, 2) if qty else 0.0
+
+        results.append({
+            "id": p.id, "code": p.code, "articulo": p.articulo,
+            "fob": round(fob, 2), "freight": freight, "insurance": insurance,
+            "cif": round(cif, 2), "customs": customs, "igv": igv,
+            "landed": landed, "unit_landed": unit_landed,
+            "quantity_total": qty, "cbm_total": cbm,
+        })
+        totals["fob"] += fob
+        totals["freight"] += freight
+        totals["insurance"] += insurance
+        totals["customs"] += customs
+        totals["igv"] += igv
+        totals["landed"] += landed
+        totals["cbm"] += cbm
+
+    totals = {k: round(v, 2) for k, v in totals.items()}
+    return {"products": results, "totals": totals,
+            "rates": {"freight_per_cbm": data.freight_per_cbm,
+                      "customs_rate": data.customs_rate,
+                      "igv_rate": data.igv_rate,
+                      "insurance_rate": data.insurance_rate}}
+
+
+# ============================================================
+# CSV EXPORT / IMPORT
+# ============================================================
+@router.post("/export-csv")
+async def export_csv(data: ExportRequest):
+    """Exporta los productos a CSV."""
+    if not data.products:
+        raise HTTPException(400, "No hay productos para exportar")
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["code", "articulo", "description", "quantity_cajas",
+                     "quantity_und_por_caja", "quantity_total", "cbm_unit",
+                     "cbm_total", "precio_unitario_cny", "precio_unitario_usd",
+                     "total_usd"])
+    for p in data.products:
+        writer.writerow([p.code, p.articulo, p.description, p.quantity_cajas,
+                         p.quantity_und_por_caja, p.quantity_total, p.cbm_unit,
+                         p.cbm_total, p.precio_unitario_cny, p.precio_unitario_usd,
+                         p.total_usd])
+    output.seek(0)
+    buf = io.BytesIO(output.getvalue().encode("utf-8-sig"))
+    filename = f"productos_{date.today().strftime('%Y%m%d')}.csv"
+    return StreamingResponse(buf, media_type="text/csv",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.post("/projects/{project_id}/import-csv")
+async def import_csv(project_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Importa productos desde un archivo CSV a un proyecto."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Proyecto no encontrado")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = content.decode("latin-1")
+
+    reader = csv.DictReader(io.StringIO(text))
+    rate = project.exchange_rate or settings.cny_to_usd_rate
+    existing = db.query(Product).filter(Product.project_id == project_id).count()
+    added = []
+
+    def _num(v, cast=float, default=0):
+        try:
+            return cast(str(v).replace(",", "").strip())
+        except (ValueError, TypeError, AttributeError):
+            return default
+
+    for i, raw in enumerate(reader):
+        cajas = _num(raw.get("quantity_cajas"), int, 1)
+        und = _num(raw.get("quantity_und_por_caja"), int, 0)
+        total = _num(raw.get("quantity_total"), int, 0) or (cajas * und)
+        cny = _num(raw.get("precio_unitario_cny"))
+        usd = _num(raw.get("precio_unitario_usd")) or (round(cny / rate, 2) if cny else 0)
+        cbm_unit = _num(raw.get("cbm_unit"))
+        cbm_total = _num(raw.get("cbm_total")) or round(cajas * cbm_unit, 4)
+        total_usd = _num(raw.get("total_usd")) or round(total * usd, 2)
+
+        p = Product(
+            uid=str(uuid.uuid4()), project_id=project_id, sort_order=existing + i,
+            code=_num(raw.get("code"), int, settings.next_product_code + existing + i),
+            articulo=(raw.get("articulo") or f"Producto {existing + i + 1}").strip(),
+            description=(raw.get("description") or "").strip(),
+            quantity_cajas=cajas, quantity_und_por_caja=und, quantity_total=total,
+            cbm_unit=cbm_unit, cbm_total=cbm_total,
+            precio_unitario_cny=cny, precio_unitario_usd=usd, total_usd=total_usd,
+            tasa_cambio=rate,
+        )
+        db.add(p)
+        added.append(p)
+
+    project.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    rows = []
+    for p in added:
+        db.refresh(p)
+        rows.append(p.to_dict())
+
+    await ws_manager.broadcast_to_room(project_id, {
+        "type": "products_added_batch", "data": {"products": rows},
+    })
+    return {"success": True, "imported": len(rows), "products": rows}
 
 
 # ============================================================
@@ -647,23 +795,23 @@ async def save_training_label(project_id: int, product_uid: str, payload: dict, 
     if width <= 0 or height <= 0 or img_w <= 0 or img_h <= 0:
         return {"success": False, "message": "Invalid dimensions"}
 
-    TRAIN_DIR = Path(os.path.expanduser("~/Escritorio/FOX_TRAIN_DATA"))
+    TRAIN_DIR = Path(os.path.expanduser("~/Escritorio/LK_TRAIN_DATA"))
     TRAIN_DIR.mkdir(parents=True, exist_ok=True)
     (TRAIN_DIR / "images").mkdir(exist_ok=True)
     (TRAIN_DIR / "labels").mkdir(exist_ok=True)
 
-    # Resolve source image
     local_path = None
     if source_url.startswith("/uploads/"):
-        local_path = str(UPLOAD_DIR / source_url[len("/uploads/"):])
-    
+        candidate = (UPLOAD_DIR / source_url[len("/uploads/"):]).resolve()
+        if str(candidate).startswith(str(UPLOAD_DIR.resolve())):
+            local_path = str(candidate)
+
     if not local_path or not os.path.exists(local_path):
         return {"success": False, "message": "Source image not found"}
 
-    # Copy source image to training dir (use hash to avoid duplicates)
     import hashlib
     with open(local_path, "rb") as f:
-        file_hash = hashlib.md5(f.read()[:4096]).hexdigest()[:10]
+        file_hash = hashlib.sha256(f.read()).hexdigest()[:16]
     
     img_name = f"yiwu_{file_hash}"
     img_dest = TRAIN_DIR / "images" / f"{img_name}.jpg"
@@ -682,12 +830,13 @@ async def save_training_label(project_id: int, product_uid: str, payload: dict, 
     with open(label_dest, "a") as f:
         f.write(f"0 {cx:.6f} {cy:.6f} {nw:.6f} {nh:.6f}\n")
 
-    label_count = sum(1 for _ in open(label_dest))
+    with open(label_dest) as f:
+        label_count = sum(1 for _ in f)
     total_images = len(list((TRAIN_DIR / "images").glob("*.jpg")))
-    total_labels = sum(
-        sum(1 for _ in open(lf))
-        for lf in (TRAIN_DIR / "labels").glob("*.txt")
-    )
+    total_labels = 0
+    for lf in (TRAIN_DIR / "labels").glob("*.txt"):
+        with open(lf) as f:
+            total_labels += sum(1 for _ in f)
 
     return {
         "success": True,
@@ -703,7 +852,7 @@ async def save_training_label(project_id: int, product_uid: str, payload: dict, 
 @router.get("/training-stats")
 async def training_stats():
     """Get current training dataset statistics."""
-    TRAIN_DIR = Path(os.path.expanduser("~/Escritorio/FOX_TRAIN_DATA"))
+    TRAIN_DIR = Path(os.path.expanduser("~/Escritorio/LK_TRAIN_DATA"))
     images_dir = TRAIN_DIR / "images"
     labels_dir = TRAIN_DIR / "labels"
     
@@ -714,7 +863,8 @@ async def training_stats():
     total_labels = 0
     if labels_dir.exists():
         for lf in labels_dir.glob("*.txt"):
-            total_labels += sum(1 for _ in open(lf))
+            with open(lf) as f:
+                total_labels += sum(1 for _ in f)
     
     return {
         "total_images": total_images,
@@ -725,14 +875,14 @@ async def training_stats():
 
 
 # ============================================================
-# PRE-LABEL: Use Gemini to auto-detect products in FOXPRODUCTOS
+# PRE-LABEL: Use Gemini to auto-detect products in LK_PRODUCTOS
 # ============================================================
 @router.post("/pre-label-folder")
 async def pre_label_folder(payload: dict = {}):
-    """Pre-label all images in FOXPRODUCTOS using Gemini Vision."""
+    """Pre-label all images in LK_PRODUCTOS using Gemini Vision."""
     import glob
     
-    folder = payload.get("folder", os.path.expanduser("~/Escritorio/FOXPRODUCTOS"))
+    folder = payload.get("folder", os.path.expanduser("~/Escritorio/LK_PRODUCTOS"))
     
     if not os.path.isdir(folder):
         raise HTTPException(400, f"Folder not found: {folder}")

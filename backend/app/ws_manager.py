@@ -1,8 +1,5 @@
 """
-EMFOX OMS v2 - WebSocket Manager
-==================================
-Manages real-time connections per project room.
-Broadcasts product changes, cursor positions, and sync status.
+LK VISION - WebSocket Manager
 """
 
 import json

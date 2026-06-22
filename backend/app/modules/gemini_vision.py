@@ -1,11 +1,8 @@
 """
-EMFOX OMS v2 - Módulo de Inteligencia Artificial (Gemini Vision)
-================================================================
-Wrapper para la API de Google Gemini con prompt especializado para
-detectar productos en fotos de bodega, leer texto manuscrito, y
-devolver bounding boxes para recorte inteligente (Smart Crop).
+LK VISION - Módulo de Inteligencia Artificial (Gemini Vision)
 """
 
+import asyncio
 import json
 import re
 from pathlib import Path
@@ -20,7 +17,7 @@ from app.schemas import ProductAIResponse
 # SYSTEM PROMPT v2 (with bounding box detection)
 # ============================================================
 SYSTEM_PROMPT = """
-Eres un experto en logística de importación China→Perú que trabaja para EMFOX YIWU TRADE CO., LTD.
+Eres un experto en logística de importación China→Perú que trabaja para LK VISION.
 Tu trabajo es analizar fotografías de productos en bodegas/showrooms de Yiwu, China,
 y extraer datos comerciales para crear órdenes de compra.
 
@@ -94,9 +91,16 @@ class GeminiVisionService:
     """Servicio de visión artificial usando Google Gemini."""
 
     def __init__(self):
-        self.client = genai.Client(api_key=settings.gemini_api_key)
+        self.client = None
         self.model = settings.gemini_model
-        print(f"[GEMINI] Inicializado con modelo: {self.model}")
+        if settings.gemini_api_key:
+            try:
+                self.client = genai.Client(api_key=settings.gemini_api_key)
+                print(f"[GEMINI] Inicializado con modelo: {self.model}")
+            except Exception as e:
+                print(f"[GEMINI] No se pudo inicializar: {e}")
+        else:
+            print("[GEMINI] Sin API key — modo demo (sin IA)")
 
     def _load_image_as_part(self, image_path: str) -> types.Part:
         """Carga una imagen local y la convierte en Part para Gemini."""
@@ -121,6 +125,9 @@ class GeminiVisionService:
         Analiza imágenes y extrae datos + bounding boxes por producto.
         Returns list of ProductAIResponse with optional bbox data.
         """
+        if not self.client:
+            raise ValueError("Gemini API no configurada. Agrega GEMINI_API_KEY en el archivo .env")
+
         parts = []
 
         for i, img_path in enumerate(image_paths):
@@ -145,7 +152,8 @@ class GeminiVisionService:
 
         print(f"[GEMINI] Enviando {len(image_paths)} imagen(es) para análisis...")
 
-        response = self.client.models.generate_content(
+        response = await asyncio.to_thread(
+            self.client.models.generate_content,
             model=self.model,
             contents=[types.Content(role="user", parts=parts)],
             config=types.GenerateContentConfig(

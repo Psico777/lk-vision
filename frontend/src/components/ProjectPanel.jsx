@@ -1,6 +1,5 @@
 /**
- * EMFOX OMS v2 - ProjectPanel Component
- * Sidebar with saved projects list (Listas Guardadas)
+ * LK VISION - ProjectPanel Component
  */
 import React, { useState } from 'react';
 import { FolderOpen, Plus, Trash2, X } from './Icons.jsx';

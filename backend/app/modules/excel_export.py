@@ -1,11 +1,5 @@
 """
-EMFOX OMS v2.1 - Módulo de Exportación Excel (11 columnas A-K)
-================================================================
-Genera archivos .xlsx con formato visual EMFOX. Columnas:
-A=PHOTO, B=CODE, C=ARTICULO, D=DESCRIPTION,
-E=CAJAS, F=UND POR CAJA, G=TOTAL (QUANTITY group),
-H=UNIT, I=TOTAL (CBM group),
-J=UNIT, K=TOTAL (USD PRICE group).
+LK VISION - Módulo de Exportación Excel (11 columnas A-K)
 """
 
 import io
@@ -27,14 +21,15 @@ from app.schemas import ExportRequest
 from app.config import settings
 
 # ============================================================
-# PALETA DE COLORES EMFOX
+# LK VISION COLOR PALETTE
 # ============================================================
-NAVY_BLUE = "1B2A4A"
-DARK_BLUE = "1B3A5C"
-HEADER_BG = "2C3E6B"
-LIGHT_GREEN = "E8F5E8"
+NAVY_BLUE = "0a0f1e"
+DARK_BLUE = "111827"
+HEADER_BG = "1a2236"
+LIGHT_GREEN = "e0f7fa"
 WHITE = "FFFFFF"
 BLACK = "000000"
+ACCENT = "00d4ff"
 
 THIN_BORDER = Border(
     left=Side(style="thin"), right=Side(style="thin"),
@@ -82,12 +77,18 @@ def _prepare_image_for_excel(image_path: str) -> Optional[XlImage]:
         return None
 
 
-def generate_emfox_excel(data: ExportRequest) -> io.BytesIO:
-    """
-    Genera archivo Excel con formato EMFOX v2.1 (11 columnas A-K).
-    Incluye UND POR CAJA, alineación centrada para ORIGIN/FROM/TO/PAYMENT,
-    y alineación derecha para totales.
-    """
+def generate_excel(data: ExportRequest, company: dict = None) -> io.BytesIO:
+    """Genera archivo Excel con branding de la empresa (11 columnas A-K)."""
+    company = company or {}
+    company_name = company.get("company_name", "LK VISION")
+    tagline = company.get("tagline", "Order Management System")
+    contact_parts = [p for p in [
+        company.get("address", ""), company.get("phone", ""),
+        company.get("email", ""),
+        f"RUC: {company.get('ruc')}" if company.get("ruc") else "",
+    ] if p]
+    contact_line = "   |   ".join(contact_parts) or "Gestión Inteligente de Pedidos"
+
     wb = Workbook()
     ws = wb.active
     ws.title = "LISTA DE PRODUCTOS"
@@ -107,7 +108,7 @@ def generate_emfox_excel(data: ExportRequest) -> io.BytesIO:
     # ============================================================
     ws.merge_cells(f"A{row}:{LAST_COL}{row}")
     cell = ws[f"A{row}"]
-    cell.value = "EMFOX YIWU TRADE CO., LTD"
+    cell.value = company_name
     cell.font = Font(name="Times New Roman", size=22, bold=True, color=NAVY_BLUE)
     cell.alignment = Alignment(horizontal="center", vertical="center")
     cell.fill = PatternFill(start_color=WHITE, end_color=WHITE, fill_type="solid")
@@ -116,16 +117,16 @@ def generate_emfox_excel(data: ExportRequest) -> io.BytesIO:
 
     ws.merge_cells(f"A{row}:{LAST_COL}{row}")
     cell = ws[f"A{row}"]
-    cell.value = "1229, 12TH FLOOR, BLOCK A, CHOUYIN BUILDING, NO. 188 SHANGCHENG AVENUE, FINANCIAL AND BUSINESS DISTRICT, FUTIAN STREET, YIWU CITY"
-    cell.font = Font(name="Arial", size=7, color=BLACK)
+    cell.value = tagline
+    cell.font = Font(name="Arial", size=8, color=BLACK)
     cell.alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[row].height = 18
     row += 1
 
     ws.merge_cells(f"A{row}:{LAST_COL}{row}")
     cell = ws[f"A{row}"]
-    cell.value = "TELE:0086-198-49046243   CONTACTO: JOMEINI"
-    cell.font = Font(name="Arial", size=9, color=BLACK)
+    cell.value = contact_line
+    cell.font = Font(name="Arial", size=8, color=BLACK)
     cell.alignment = Alignment(horizontal="center", vertical="center")
     ws.row_dimensions[row].height = 18
     row += 1

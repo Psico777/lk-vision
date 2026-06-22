@@ -1,83 +1,97 @@
-# EMFOX OMS - Order Management System
-## Sistema de Procesamiento de Pedidos Inteligente
+<div align="center">
 
-**Empresa:** EMFOX YIWU TRADE CO., LTD  
-**Ruta:** Yiwu/Ningbo, China → Callao, Perú  
-**Propósito:** Reducir el tiempo de entrada de datos manual de agentes en Yiwu
+# 🚀 LK VISION
 
----
+### Order Management System con Inteligencia Artificial
 
-## 🏗 ARQUITECTURA DEL SISTEMA
+**Convierte fotos de productos en órdenes de compra listas para exportar — en minutos, no horas.**
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    FRONTEND (React)                      │
-│  ┌──────────┐  ┌──────────────────┐  ┌──────────────┐  │
-│  │  Image    │  │  Editable Table  │  │   Export     │  │
-│  │  Upload   │→ │  (TanStack)      │→ │   Panel      │  │
-│  │  Dropzone │  │  Real-time calc  │  │   .xlsx gen  │  │
-│  └──────────┘  └──────────────────┘  └──────────────┘  │
-└──────────────────────┬──────────────────────────────────┘
-                       │ HTTP/REST
-┌──────────────────────▼──────────────────────────────────┐
-│                   BACKEND (FastAPI)                       │
-│  ┌──────────────┐  ┌────────────────┐  ┌─────────────┐  │
-│  │ Gemini AI    │  │ Business Logic │  │ Excel Export │  │
-│  │ Vision       │→ │ CNY→USD conv   │→ │ EMFOX format│  │
-│  │ Module       │  │ Totals calc    │  │ Template     │  │
-│  └──────────────┘  └────────────────┘  └─────────────┘  │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-              ┌────────▼────────┐
-              │  Google Gemini  │
-              │  2.5 Flash API  │
-              │  (Vision)       │
-              └─────────────────┘
-```
+*Diseñado para importadores, traders y agentes de compra China → LATAM.*
 
-### Flujo de Datos
-```
-Foto de producto → Gemini Vision AI → JSON estructurado → 
-Business Logic (CNY→USD, totales) → Tabla Editable Web → 
-Usuario edita → Exportación Excel (.xlsx formato EMFOX)
-```
+![React](https://img.shields.io/badge/React-19-00d4ff?logo=react&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
+![Gemini AI](https://img.shields.io/badge/Gemini_AI-2.5_Flash-7c3aed?logo=google&logoColor=white)
+![License](https://img.shields.io/badge/Licencia-Comercial-success)
+
+</div>
 
 ---
 
-## 📊 ESQUEMA DE DATOS: Producto
+## 💡 El Problema
 
-```json
-{
-  "id": "uuid",
-  "code": 10001,
-  "articulo": "Peluche 1",
-  "description": "25 cm sin relleno",
-  "photo_url": "/uploads/abc.jpg",
-  "quantity_cajas": 7,
-  "quantity_total": 320,
-  "cbm_unit": 1.0,
-  "cbm_total": 0.55,
-  "precio_unitario_cny": 11.0,
-  "precio_unitario_usd": 1.53,
-  "total_usd": 489.60,
-  "tasa_cambio": 7.2,
-  "editable": true
-}
-```
+Los agentes de compra en China fotografían productos en bodegas con precios, cantidades y volúmenes escritos a mano. Pasar esa información a una hoja de Excel toma **horas de digitación manual**, con errores de tipeo y conversiones de moneda equivocadas.
+
+## ✅ La Solución
+
+**LK VISION** usa visión por IA (Google Gemini) para leer las fotos automáticamente: detecta cada producto, lee el texto manuscrito, convierte CNY → USD, calcula totales y genera una orden profesional en **Excel y PDF** lista para enviar al proveedor o al cliente.
+
+> ⏱️ **Reduce el tiempo de digitación de 30+ minutos a menos de 2 minutos por foto.**
 
 ---
 
-## 🚀 CÓMO EJECUTAR
+## ✨ Funcionalidades
 
-### Prerrequisitos
+| | Característica | Descripción |
+|---|---|---|
+| 🤖 | **IA de Visión** | Gemini detecta productos, lee precios/cantidades/volúmenes manuscritos y los estructura automáticamente |
+| ✂️ | **Smart Crop** | Recorte automático e individual de cada producto + editor manual de recorte |
+| 📊 | **Dashboard** | KPIs y gráficos: valor por producto, volumen, distribución de costos |
+| 🧮 | **Calculadora de Importación** | Costo *landed* por producto: flete por CBM, seguro, arancel e IGV (Perú) |
+| 🏷️ | **White-Label** | Personaliza nombre, logo, datos y colores. **Véndelo a múltiples clientes sin tocar código** |
+| 📋 | **Tabla Inteligente** | Edición tipo Excel, recálculo en vivo, búsqueda, ordenamiento y duplicar fila |
+| 📤 | **Exportación** | Excel (.xlsx) y PDF profesional con fotos embebidas — **100% local, sin APIs de pago** |
+| 🔄 | **Import/Export CSV** | Migra desde tus hojas existentes en segundos |
+| 👥 | **Tiempo Real** | Colaboración multi-usuario vía WebSocket |
+| 💾 | **Persistencia** | Proyectos guardados en base de datos local (SQLite) |
+
+---
+
+## 📸 Capturas
+
+### Tabla de productos inteligente
+![Tabla](screenshots/shot-table.png)
+
+### Dashboard con estadísticas
+![Dashboard](screenshots/shot-dashboard.png)
+
+### Calculadora de costo de importación (Landed Cost)
+![Calculadora](screenshots/shot-calc.png)
+
+### Exportación PDF profesional (con tu marca)
+![PDF](screenshots/shot-pdf.png)
+
+---
+
+## 🏗️ Arquitectura
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Frontend       │ ──▶ │  Backend         │ ──▶ │  Google Gemini  │
+│  React 19 +Vite │     │  FastAPI +SQLite │     │  2.5 Flash (IA) │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+   Tabla editable          Lógica de negocio         Visión + OCR
+   Dashboard / Calc        Export Excel/PDF/CSV       Bounding boxes
+   White-label UI          WebSocket realtime
+```
+
+**Stack:** React 19 · Vite 6 · TanStack Table · FastAPI · SQLAlchemy · SQLite · Google Gemini · openpyxl · reportlab
+
+---
+
+## 🚀 Instalación
+
+### Requisitos
 - Python 3.10+
 - Node.js 18+
-- API Key de Google Gemini
+- API Key de Google Gemini ([gratis aquí](https://aistudio.google.com/apikey))
 
 ### Backend
 ```bash
 cd backend
 pip install -r requirements.txt
+# Crea backend/.env con tu key:
+#   GEMINI_API_KEY=tu_api_key
 python -m uvicorn app.main:app --reload --port 8000
 ```
 
@@ -88,111 +102,57 @@ npm install
 npm run dev
 ```
 
-### Acceso
-- **Frontend:** http://localhost:5173
-- **Backend API:** http://localhost:8000
-- **API Docs:** http://localhost:8000/docs
+### Windows (todo de una vez)
+```bash
+start.bat
+```
+
+| Servicio | URL |
+|----------|-----|
+| Frontend | http://localhost:5173 |
+| API | http://localhost:8000 |
+| Documentación API | http://localhost:8000/docs |
+
+> 💡 Sin API key, la app corre en **modo demo** (todo funciona excepto el procesamiento de fotos con IA).
 
 ---
 
-## 📁 ESTRUCTURA DEL PROYECTO
+## 🏷️ White-Label — Listo para Vender
 
-```
-Paginadeexcel/
-├── backend/
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py              # FastAPI app principal
-│   │   ├── config.py            # Configuración (env vars)
-│   │   ├── schemas.py           # Modelos Pydantic (ProductRow, etc.)
-│   │   ├── routes.py            # Endpoints API
-│   │   └── modules/
-│   │       ├── __init__.py
-│   │       ├── gemini_vision.py # Integración Gemini AI + System Prompt
-│   │       ├── business_logic.py# Conversión moneda, cálculos, códigos
-│   │       └── excel_export.py  # Generación Excel formato EMFOX
-│   ├── uploads/                 # Imágenes subidas
-│   ├── requirements.txt
-│   └── .env                     # Variables de entorno
-│
-├── frontend/
-│   ├── src/
-│   │   ├── main.jsx             # Entry point React
-│   │   ├── App.jsx              # Componente raíz
-│   │   ├── components/
-│   │   │   ├── ImageUploader.jsx # Drag & drop de fotos
-│   │   │   ├── EditableTable.jsx # Tabla editable (Excel web)
-│   │   │   └── ExportPanel.jsx   # Panel exportación + datos consignatario
-│   │   ├── services/
-│   │   │   └── api.js           # Capa de comunicación con Backend
-│   │   └── styles/
-│   │       └── App.css          # Estilos (paleta EMFOX)
-│   ├── index.html
-│   ├── vite.config.js
-│   └── package.json
-│
-└── README.md
-```
+LK VISION fue diseñado para **revenderse**. Desde el panel de **Configuración** (⚙️), cualquier cliente personaliza:
+
+- Nombre de empresa, eslogan y logo
+- Dirección, teléfono, email y RUC
+- Colores de marca (primario y secundario)
+- Valores por defecto (origen, destino, consignatario)
+
+Todo se refleja automáticamente en la interfaz, el Excel y el PDF. **Un solo código, infinitos clientes.**
 
 ---
 
-## 🤖 ESTRATEGIA DE VISIÓN (Gemini AI)
-
-### System Prompt (Clave del Sistema)
-El prompt instruye a Gemini para:
-
-1. **Actuar como experto en logística** China→Perú
-2. **Detectar productos individuales** en cada foto
-3. **Leer texto manuscrito** asociado (precios en 元/YUAN, cantidades en UND, volúmenes en m³)
-4. **Asociar datos** al producto correcto por proximidad visual
-5. **Retornar JSON estructurado** con: descripción, precio CNY, cantidad, volumen, tamaño
-
-### Formato de Datos Manuscritos Esperado
-```
-11元          → 11 Yuanes (precio unitario)
-320 UND       → 320 unidades
-0.55m³        → 0.55 metros cúbicos (total)
-25cm          → 25 centímetros (tamaño)
-```
-
-### Nota sobre CBM
-- `CBM UNIT` = volumen de 1 caja
-- `CBMT (CBM TOTAL)` = CAJAS × CBM UNIT
-- Ejemplo: 7 cajas × 3 m³/caja = 21 m³ total
-
----
-
-## 💰 LÓGICA DE NEGOCIO
-
-### Conversión de Moneda
-```
-USD = CNY / Tasa de Cambio
-Ejemplo: 11 CNY / 7.2 = $1.53 USD
-```
-Tasa configurable en `.env` → `CNY_TO_USD_RATE=7.2`
-
-### Cálculo de Totales
-```
-Total USD = Cantidad × Precio Unitario USD
-Ejemplo: 320 × $1.53 = $489.60
-```
-
-### Códigos Secuenciales
-Comienzan en 10001 y se incrementan: 10001, 10002, 10003...
-
----
-
-## 📋 API ENDPOINTS
+## 📋 API (principales endpoints)
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| `POST` | `/api/upload` | Subir imágenes |
-| `POST` | `/api/upload-and-process` | Subir + procesar con IA |
-| `POST` | `/api/recalculate` | Recalcular producto editado |
-| `POST` | `/api/export` | Exportar a Excel |
-| `GET` | `/api/config` | Obtener configuración |
+| `POST` | `/api/projects/{id}/upload-and-process` | Subir fotos + procesar con IA |
+| `POST` | `/api/import-calc` | Calcular costo landed |
+| `POST` | `/api/export` · `/api/export-pdf` · `/api/export-csv` | Exportar |
+| `POST` | `/api/projects/{id}/import-csv` | Importar productos |
+| `GET/PUT` | `/api/company-settings` | Configuración white-label |
+| `WS` | `/api/ws/{projectId}` | Colaboración en tiempo real |
+
+Documentación interactiva completa en `/docs`.
 
 ---
 
-## 📄 LICENCIA
-Propiedad de EMFOX YIWU TRADE CO., LTD - Uso interno.
+## 📄 Licencia
+
+Software comercial. Para licencias, demos o personalizaciones, contactar al autor.
+
+---
+
+<div align="center">
+
+**LK VISION** · Gestión Inteligente de Pedidos con IA
+
+</div>

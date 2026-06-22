@@ -1,18 +1,20 @@
 /**
- * EMFOX OMS v2 - Main Application
- * Real-time collaborative Order Management System
- * Projects, Dynamic Exchange Rate, WebSocket sync, Smart Crop
+ * LK VISION - Order Management System
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ImageUploader from './components/ImageUploader.jsx';
 import EditableTable from './components/EditableTable.jsx';
 import ExportPanel from './components/ExportPanel.jsx';
 import ProjectPanel from './components/ProjectPanel.jsx';
+import Dashboard from './components/Dashboard.jsx';
+import ImportCalculator from './components/ImportCalculator.jsx';
+import SettingsModal from './components/SettingsModal.jsx';
+import { Settings, Search, BarChart, Calculator, FileUp, Download, FileSpreadsheet } from './components/Icons.jsx';
 import {
   getConfig, listProjects, createProject, getProject,
   deleteProject as apiDeleteProject, updateProject,
   recalculateAll, clearAllProducts, deleteProduct,
-  connectWebSocket,
+  connectWebSocket, getCompanySettings, exportToCsv, importCsv,
 } from './services/api.js';
 
 const today = new Date();
@@ -42,6 +44,28 @@ export default function App() {
   const [wsConnected, setWsConnected] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState([]);
 
+  // New: white-label, views, search
+  const [company, setCompany] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [activeView, setActiveView] = useState('table'); // table | dashboard | calc
+  const [searchTerm, setSearchTerm] = useState('');
+  const csvInputRef = useRef(null);
+
+  // ── Apply company branding (colors + defaults) ──
+  const applyBranding = useCallback((c) => {
+    if (!c) return;
+    setCompany(c);
+    if (c.primary_color) document.documentElement.style.setProperty('--accent', c.primary_color);
+    if (c.accent_color) document.documentElement.style.setProperty('--accent-secondary', c.accent_color);
+    document.title = `${c.company_name || 'LK VISION'} - OMS`;
+    setExportConfig((prev) => ({
+      ...prev,
+      origin: prev.origin || c.default_origin || 'NINGBO, CHINA',
+      destination: prev.destination || c.default_destination || 'CALLAO, PERÚ',
+      consignee: c.default_consignee || prev.consignee,
+    }));
+  }, []);
+
   // ── Load config + projects on mount ──
   useEffect(() => {
     getConfig()
@@ -50,6 +74,7 @@ export default function App() {
           setExchangeRate(config.cny_to_usd_rate);
           setRateInput(String(config.cny_to_usd_rate));
         }
+        if (config.company) applyBranding(config.company);
       })
       .catch(() => console.log('Backend no disponible'));
 
@@ -282,6 +307,47 @@ export default function App() {
     setProducts([]);
   };
 
+  // ── Duplicate a product ──
+  const handleDuplicateProduct = (productUid) => {
+    setProducts((prev) => {
+      const src = prev.find((p) => p.id === productUid);
+      if (!src) return prev;
+      const nextCode = Math.max(...prev.map((p) => p.code || 0), 10000) + 1;
+      const copy = { ...src, id: crypto.randomUUID(), code: nextCode, articulo: `${src.articulo} (copia)` };
+      const idx = prev.findIndex((p) => p.id === productUid);
+      const out = [...prev];
+      out.splice(idx + 1, 0, copy);
+      return out;
+    });
+  };
+
+  // ── CSV export ──
+  const handleExportCsv = async () => {
+    if (!products.length) { alert('No hay productos para exportar'); return; }
+    try {
+      await exportToCsv({ products, ...exportConfig });
+    } catch (e) {
+      alert('Error exportando CSV: ' + e.message);
+    }
+  };
+
+  // ── CSV import ──
+  const handleImportCsv = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!activeProjectId) { alert('Selecciona o crea una lista primero'); return; }
+    try {
+      const res = await importCsv(activeProjectId, file);
+      alert(`${res.imported} producto(s) importados desde CSV`);
+      const project = await getProject(activeProjectId);
+      setProducts(project.products || []);
+    } catch (err) {
+      alert('Error importando CSV: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      if (csvInputRef.current) csvInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="app-layout">
       {/* ============ PROJECT PANEL (sidebar) ============ */}
@@ -308,12 +374,12 @@ export default function App() {
               ☰
             </button>
             <div className="header-content">
-              <h1 className="company-name">EMFOX YIWU TRADE CO., LTD</h1>
+              <h1 className="company-name">{company?.company_name || 'LK VISION'}</h1>
               <p className="company-address">
-                1229, 12TH FLOOR, BLOCK A, CHOUYIN BUILDING, NO. 188 SHANGCHENG AVENUE
+                {company?.tagline || 'Order Management System — Gestión Inteligente de Pedidos'}
               </p>
               <p className="company-contact">
-                TELE: 0086-198-49046243 &nbsp; CONTACTO: JOMEINI
+                Powered by Gemini AI &nbsp;|&nbsp; Real-time Collaboration
               </p>
             </div>
           </div>
@@ -349,8 +415,12 @@ export default function App() {
               <span className="badge-title">
                 {activeProjectName || 'LISTA DE PRODUCTOS'}
               </span>
-              <span className="badge-subtitle">Order Management System</span>
+              <span className="badge-subtitle">{(company?.company_name || 'LK VISION')} OMS</span>
             </div>
+
+            <button className="btn-icon header-settings-btn" onClick={() => setShowSettings(true)} title="Configuración de Empresa">
+              <Settings size={20} />
+            </button>
           </div>
         </header>
 
@@ -364,8 +434,37 @@ export default function App() {
             projectId={activeProjectId}
           />
 
-          {/* Products table */}
+          {/* View tabs */}
           {products.length > 0 && (
+            <div className="view-tabs">
+              <button className={`view-tab ${activeView === 'table' ? 'view-tab-active' : ''}`} onClick={() => setActiveView('table')}>
+                📋 Tabla
+              </button>
+              <button className={`view-tab ${activeView === 'dashboard' ? 'view-tab-active' : ''}`} onClick={() => setActiveView('dashboard')}>
+                <BarChart size={15} /> Dashboard
+              </button>
+              <button className={`view-tab ${activeView === 'calc' ? 'view-tab-active' : ''}`} onClick={() => setActiveView('calc')}>
+                <Calculator size={15} /> Calculadora
+              </button>
+            </div>
+          )}
+
+          {/* DASHBOARD view */}
+          {products.length > 0 && activeView === 'dashboard' && (
+            <section className="products-section">
+              <Dashboard products={products} exchangeRate={exchangeRate} />
+            </section>
+          )}
+
+          {/* CALCULATOR view */}
+          {products.length > 0 && activeView === 'calc' && (
+            <section className="products-section">
+              <ImportCalculator products={products} defaults={company} />
+            </section>
+          )}
+
+          {/* TABLE view */}
+          {products.length > 0 && activeView === 'table' && (
             <section className="products-section">
               <div className="products-header">
                 <h2 className="section-title">
@@ -373,11 +472,28 @@ export default function App() {
                   <span className="product-count">{products.length} items</span>
                 </h2>
                 <div className="products-actions">
+                  <div className="search-box">
+                    <Search size={15} className="search-icon" />
+                    <input
+                      type="text"
+                      placeholder="Buscar producto..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="search-input"
+                    />
+                  </div>
                   <button className="btn-secondary" onClick={addEmptyProduct}>
-                    + Agregar Producto
+                    + Agregar
                   </button>
+                  <button className="btn-secondary" onClick={handleExportCsv} title="Exportar CSV">
+                    <Download size={14} /> CSV
+                  </button>
+                  <button className="btn-secondary" onClick={() => csvInputRef.current?.click()} title="Importar CSV">
+                    <FileUp size={14} /> Importar
+                  </button>
+                  <input ref={csvInputRef} type="file" accept=".csv" onChange={handleImportCsv} style={{ display: 'none' }} />
                   <button className="btn-danger" onClick={handleClearAll}>
-                    🗑 Limpiar Todo
+                    🗑 Limpiar
                   </button>
                 </div>
               </div>
@@ -387,6 +503,8 @@ export default function App() {
                 setProducts={setProducts}
                 exchangeRate={exchangeRate}
                 onDeleteProduct={handleDeleteProduct}
+                onDuplicateProduct={handleDuplicateProduct}
+                searchTerm={searchTerm}
                 projectId={activeProjectId}
               />
 
@@ -424,11 +542,19 @@ export default function App() {
 
         {/* ============ FOOTER ============ */}
         <footer className="footer">
-          <span>EMFOX OMS v2.0 • Powered by Gemini AI</span>
+          <span>{company?.company_name || 'LK VISION'} v2.0 • Powered by Gemini AI</span>
           <span>Tasa: 1 USD = {exchangeRate} CNY</span>
-          <span>Ruta: NINGBO, CHINA → CALLAO, PERÚ</span>
+          <span>Ruta: {exportConfig.origin} → {exportConfig.destination}</span>
         </footer>
       </div>
+
+      {/* ============ SETTINGS MODAL ============ */}
+      {showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          onSaved={(c) => applyBranding(c)}
+        />
+      )}
     </div>
   );
 }

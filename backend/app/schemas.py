@@ -1,8 +1,5 @@
 """
-EMFOX OMS v2 - Esquemas de Datos (Pydantic Models)
-=====================================================
-Defines all data structures for AI response, products, projects,
-WebSocket messages, and API requests/responses.
+LK VISION - Esquemas de Datos (Pydantic Models)
 """
 
 from pydantic import BaseModel, Field
@@ -131,7 +128,40 @@ class RecalculateRequest(BaseModel):
 
 
 class BulkRecalculateRequest(BaseModel):
-    cny_to_usd_rate: float
+    cny_to_usd_rate: float = Field(..., gt=0)
+
+
+# ============================================================
+# COMPANY SETTINGS (white-label)
+# ============================================================
+class CompanySettingsUpdate(BaseModel):
+    company_name: Optional[str] = None
+    tagline: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    ruc: Optional[str] = None
+    logo_url: Optional[str] = None
+    primary_color: Optional[str] = None
+    accent_color: Optional[str] = None
+    default_origin: Optional[str] = None
+    default_destination: Optional[str] = None
+    default_consignee: Optional[str] = None
+    freight_per_cbm: Optional[float] = None
+    customs_rate: Optional[float] = None
+    igv_rate: Optional[float] = None
+    insurance_rate: Optional[float] = None
+
+
+# ============================================================
+# IMPORT COST CALCULATOR
+# ============================================================
+class ImportCalcRequest(BaseModel):
+    products: List[ProductRow]
+    freight_per_cbm: float = Field(180.0, ge=0)
+    customs_rate: float = Field(0.0, ge=0)      # arancel %
+    igv_rate: float = Field(18.0, ge=0)         # IGV %
+    insurance_rate: float = Field(1.0, ge=0)    # seguro % sobre FOB
 
 
 # ============================================================

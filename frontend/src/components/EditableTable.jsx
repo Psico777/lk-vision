@@ -1,15 +1,15 @@
 /**
- * EMFOX OMS v2 - EditableTable Component
- * TanStack Table with editable cells, auto-recalculation,
- * delete per row, crop_url thumbnails, EMFOX column layout.
+ * LK VISION - EditableTable Component
  */
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
   flexRender,
 } from '@tanstack/react-table';
-import { Pencil, Trash2 } from './Icons.jsx';
+import { Pencil, Trash2, Copy, ArrowUpDown } from './Icons.jsx';
 import CropModal from './CropModal.jsx';
 
 // ============================================================
@@ -25,7 +25,7 @@ function EditableCell({ getValue, row, column, table }) {
   const onBlur = () => {
     setIsEditing(false);
     if (value !== initialValue) {
-      table.options.meta?.updateData(row.index, column.id, value);
+      table.options.meta?.updateData(row.original.id, column.id, value);
     }
   };
 
@@ -69,7 +69,7 @@ function EditableNumberCell({ getValue, row, column, table }) {
     setIsEditing(false);
     const numVal = parseFloat(value);
     if (!isNaN(numVal) && numVal !== initialValue) {
-      table.options.meta?.updateData(row.index, column.id, numVal);
+      table.options.meta?.updateData(row.original.id, column.id, numVal);
     }
   };
 
@@ -104,12 +104,15 @@ function EditableNumberCell({ getValue, row, column, table }) {
 // ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
-export default function EditableTable({ products, setProducts, exchangeRate, onDeleteProduct, projectId }) {
+export default function EditableTable({ products, setProducts, exchangeRate, onDeleteProduct, onDuplicateProduct, searchTerm = '', projectId }) {
   const [cropProduct, setCropProduct] = useState(null);
+  const [sorting, setSorting] = useState([]);
 
-  const recalculate = useCallback((rowIndex, columnId, value) => {
+  const recalculate = useCallback((rowId, columnId, value) => {
     setProducts((old) => {
       const newData = [...old];
+      const rowIndex = newData.findIndex((p) => p.id === rowId);
+      if (rowIndex < 0) return old;
       const row = { ...newData[rowIndex] };
       row[columnId] = value;
 
@@ -149,15 +152,25 @@ export default function EditableTable({ products, setProducts, exchangeRate, onD
     {
       id: 'actions',
       header: '',
-      size: 40,
+      size: 56,
+      enableSorting: false,
       cell: ({ row }) => (
-        <button
-          className="btn-delete-row"
-          onClick={() => onDeleteProduct && onDeleteProduct(row.original.id)}
-          title="Eliminar producto"
-        >
-          <Trash2 size={14} />
-        </button>
+        <div className="row-actions">
+          <button
+            className="btn-dup-row"
+            onClick={() => onDuplicateProduct && onDuplicateProduct(row.original.id)}
+            title="Duplicar producto"
+          >
+            <Copy size={13} />
+          </button>
+          <button
+            className="btn-delete-row"
+            onClick={() => onDeleteProduct && onDeleteProduct(row.original.id)}
+            title="Eliminar producto"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       ),
     },
     // PHOTO (crop_url preferred over photo_url)
@@ -183,11 +196,6 @@ export default function EditableTable({ products, setProducts, exchangeRate, onD
                 className="btn-crop"
                 onClick={() => table.options.meta?.openCrop(row.original)}
                 title="Recortar manualmente"
-                style={{
-                  fontSize: '10px', padding: '2px 6px', cursor: 'pointer',
-                  background: '#1a3a4a', border: '1px solid #00e5ff',
-                  borderRadius: '4px', color: '#00e5ff', whiteSpace: 'nowrap',
-                }}
               >
                 ✂️ Recortar
               </button>
@@ -291,12 +299,27 @@ export default function EditableTable({ products, setProducts, exchangeRate, onD
       ),
       meta: { group: 'USD PRICE' },
     },
-  ], [onDeleteProduct]);
+  ], [onDeleteProduct, onDuplicateProduct]);
+
+  const globalFilterFn = useCallback((row, _columnId, filterValue) => {
+    const q = String(filterValue).toLowerCase();
+    const p = row.original;
+    return (
+      String(p.code || '').toLowerCase().includes(q) ||
+      String(p.articulo || '').toLowerCase().includes(q) ||
+      String(p.description || '').toLowerCase().includes(q)
+    );
+  }, []);
 
   const table = useReactTable({
     data: products,
     columns,
+    state: { sorting, globalFilter: searchTerm },
+    onSortingChange: setSorting,
+    globalFilterFn,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     meta: {
       updateData: recalculate,
       openCrop: (product) => setCropProduct(product),
@@ -342,7 +365,7 @@ export default function EditableTable({ products, setProducts, exchangeRate, onD
       )}
     <div className="table-container">
       <div className="table-scroll">
-        <table className="emfox-table">
+        <table className="lk-table">
           <thead>
             <tr className="header-group-row">
               {columnGroups.map((group, i) => (
@@ -357,11 +380,27 @@ export default function EditableTable({ products, setProducts, exchangeRate, onD
             </tr>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="header-columns-row">
-                {headerGroup.headers.map((header) => (
-                  <th key={header.id} style={{ width: header.getSize() }} className="header-cell">
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const canSort = header.column.getCanSort() && header.column.id !== 'photo' && header.column.id !== 'actions';
+                  const sorted = header.column.getIsSorted();
+                  return (
+                    <th
+                      key={header.id}
+                      style={{ width: header.getSize(), cursor: canSort ? 'pointer' : 'default' }}
+                      className={`header-cell ${canSort ? 'header-sortable' : ''}`}
+                      onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                    >
+                      <span className="header-cell-content">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {canSort && (
+                          <span className={`sort-icon ${sorted ? 'sort-active' : ''}`}>
+                            {sorted === 'asc' ? '▲' : sorted === 'desc' ? '▼' : <ArrowUpDown size={10} />}
+                          </span>
+                        )}
+                      </span>
+                    </th>
+                  );
+                })}
               </tr>
             ))}
           </thead>
@@ -399,7 +438,6 @@ export default function EditableTable({ products, setProducts, exchangeRate, onD
         <span>Total: $ {totalUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
       </div>
     </div>
-  );
     </>
   );
 }

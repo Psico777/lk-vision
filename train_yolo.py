@@ -1,10 +1,8 @@
 """
-EMFOX OMS — Entrenador YOLOv8-nano para Smart Crop
-====================================================
-Optimizado para: i7 10ma gen + 32GB RAM + MX230 2GB VRAM
+LK VISION — Entrenador YOLOv8-nano para Smart Crop
 
 Uso local:
-    python3 train_yolo.py --data ~/Escritorio/FOX_TRAIN_DATA --epochs 50
+    python3 train_yolo.py --data ~/Escritorio/LK_TRAIN_DATA --epochs 50
 
 Uso Colab:
     python3 train_yolo.py --prepare-colab  (genera zip para subir)
@@ -71,7 +69,7 @@ val: images/val
 nc: 1
 names: ['product']
 
-# EMFOX OMS Training Dataset
+# LK VISION Training Dataset
 # Real: {len(real_images)} images | Synthetic: {train_imgs + val_imgs - len(real_images)}
 # Generated: {time.strftime('%Y-%m-%d %H:%M')}
 """
@@ -107,7 +105,7 @@ def prepare_colab_zip(data_dir: str, synthetic_dir: str = None):
     zip_path = Path(data_dir) / "colab_dataset"
     shutil.make_archive(str(zip_path), 'zip', str(dataset_dir))
     
-    colab_notebook = f"""# EMFOX OMS — YOLOv8 Training (Google Colab)
+    colab_notebook = f"""# LK VISION — YOLOv8 Training (Google Colab)
 # Upload colab_dataset.zip first, then run all cells
 
 # Cell 1: Setup
@@ -132,11 +130,11 @@ results = model.train(
     workers=2,
     patience=15,
     save=True,
-    name='emfox_crop'
+    name='lk_vision_crop'
 )
 
 # Cell 4: Download best model
-files.download('runs/detect/emfox_crop/weights/best.pt')
+files.download('runs/detect/lk_vision_crop/weights/best.pt')
 # This ~6MB file goes into your OMS backend
 """
     (Path(data_dir) / "colab_training.py").write_text(colab_notebook)
@@ -167,7 +165,7 @@ def train_local(yaml_path: str, epochs: int = 50, device: str = "cpu"):
         "workers": 4,
         "patience": 15,
         "save": True,
-        "name": "emfox_crop",
+        "name": "lk_vision_crop",
         "verbose": True,
     }
     
@@ -181,10 +179,10 @@ def train_local(yaml_path: str, epochs: int = 50, device: str = "cpu"):
     
     results = model.train(**train_args)
     
-    best_path = Path("runs/detect/emfox_crop/weights/best.pt")
+    best_path = Path("runs/detect/lk_vision_crop/weights/best.pt")
     if best_path.exists():
         # Copy to OMS backend
-        oms_model = Path(__file__).parent / "backend" / "models" / "emfox_crop.pt"
+        oms_model = Path(__file__).parent / "backend" / "models" / "lk_vision_crop.pt"
         oms_model.parent.mkdir(exist_ok=True)
         shutil.copy2(best_path, oms_model)
         print(f"\n✅ Model saved: {oms_model} ({oms_model.stat().st_size / 1024:.0f} KB)")
@@ -193,8 +191,8 @@ def train_local(yaml_path: str, epochs: int = 50, device: str = "cpu"):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="EMFOX YOLOv8 Trainer")
-    parser.add_argument("--data", default=os.path.expanduser("~/Escritorio/FOX_TRAIN_DATA"))
+    parser = argparse.ArgumentParser(description="LK VISION YOLOv8 Trainer")
+    parser.add_argument("--data", default=os.path.expanduser("~/Escritorio/LK_TRAIN_DATA"))
     parser.add_argument("--synthetic", default="./dataset")
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--device", default="cpu", choices=["cpu", "0"])

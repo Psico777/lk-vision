@@ -1,6 +1,5 @@
 """
-EMFOX OMS - Configuración Central
-Carga variables de entorno y define settings globales del sistema.
+LK VISION - Configuración Central
 """
 
 from pathlib import Path
@@ -27,7 +26,7 @@ class Settings(BaseSettings):
     next_product_code: int = 10001
 
     # --- Database ---
-    database_url: str = "sqlite:///./emfox_oms.db"
+    database_url: str = "sqlite:///./lk_vision.db"
 
     # --- iLovePDF (Excel → PDF conversion) ---
     ilovepdf_public_key: str = ""
@@ -43,7 +42,10 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> List[str]:
-        return json.loads(self.cors_origins)
+        try:
+            return json.loads(self.cors_origins)
+        except json.JSONDecodeError:
+            return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 
 settings = Settings()

@@ -1,6 +1,5 @@
 /**
- * EMFOX OMS v2 - API Service Layer
- * Projects CRUD, Products CRUD, WebSocket, Export
+ * LK VISION - API Service Layer
  */
 import axios from 'axios';
 
@@ -88,7 +87,7 @@ export async function exportToExcel(exportData) {
   const link = document.createElement('a');
   link.href = url;
   const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-  link.setAttribute('download', `EMFOX_ListaProductos_${today}.xlsx`);
+  link.setAttribute('download', `LK_VISION_Productos_${today}.xlsx`);
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -101,11 +100,54 @@ export async function exportToPdf(exportData) {
   const link = document.createElement('a');
   link.href = url;
   const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-  link.setAttribute('download', `EMFOX_ListaProductos_${today}.pdf`);
+  link.setAttribute('download', `LK_VISION_Productos_${today}.pdf`);
   document.body.appendChild(link);
   link.click();
   link.remove();
   window.URL.revokeObjectURL(url);
+}
+
+export async function exportToCsv(exportData) {
+  const response = await api.post('/export-csv', exportData, { responseType: 'blob' });
+  const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }));
+  const link = document.createElement('a');
+  link.href = url;
+  const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  link.setAttribute('download', `productos_${today}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+export async function importCsv(projectId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post(`/projects/${projectId}/import-csv`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+}
+
+// ============================================================
+// COMPANY SETTINGS (white-label)
+// ============================================================
+export async function getCompanySettings() {
+  const response = await api.get('/company-settings');
+  return response.data;
+}
+
+export async function updateCompanySettings(data) {
+  const response = await api.put('/company-settings', data);
+  return response.data;
+}
+
+// ============================================================
+// IMPORT COST CALCULATOR
+// ============================================================
+export async function calcImportCost(payload) {
+  const response = await api.post('/import-calc', payload);
+  return response.data;
 }
 
 export async function manualCrop(projectId, productUid, cropData) {

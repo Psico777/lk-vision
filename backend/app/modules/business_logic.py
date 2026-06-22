@@ -1,8 +1,5 @@
 """
-EMFOX OMS - Lógica de Negocio y Procesamiento
-===============================================
-Convierte datos crudos de la IA en productos procesados listos para la tabla.
-Incluye: conversión de moneda, cálculo de totales, asignación de códigos.
+LK VISION - Lógica de Negocio y Procesamiento
 """
 
 import uuid

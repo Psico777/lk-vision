@@ -1,11 +1,7 @@
 """
-EMFOX OMS v2 - Database Models & Engine
-========================================
-SQLite database for persistent projects, products, and user sessions.
-Supports multi-user collaboration via project-based isolation.
+LK VISION - Database Models & Engine
 """
 
-import os
 from datetime import datetime, timezone
 from sqlalchemy import (
     create_engine, Column, Integer, String, Float, Boolean,
@@ -15,7 +11,9 @@ from sqlalchemy.orm import (
     declarative_base, sessionmaker, relationship, Session
 )
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./emfox_oms.db")
+from app.config import settings
+
+DATABASE_URL = settings.database_url
 
 engine = create_engine(
     DATABASE_URL,
@@ -159,6 +157,64 @@ class Product(Base):
                 "w": self.bbox_w, "h": self.bbox_h
             } if self.bbox_x is not None else None,
         }
+
+
+# ============================================================
+# MODEL: CompanySettings (white-label branding — single row)
+# ============================================================
+class CompanySettings(Base):
+    __tablename__ = "company_settings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    company_name = Column(String(255), default="LK VISION")
+    tagline = Column(String(255), default="Order Management System")
+    address = Column(String(500), default="")
+    phone = Column(String(100), default="")
+    email = Column(String(150), default="")
+    ruc = Column(String(50), default="")
+    logo_url = Column(String(500), default="")
+    primary_color = Column(String(20), default="#00d4ff")
+    accent_color = Column(String(20), default="#7c3aed")
+    default_origin = Column(String(100), default="NINGBO, CHINA")
+    default_destination = Column(String(100), default="CALLAO, PERÚ")
+    default_consignee = Column(String(255), default="")
+    # Import calculator defaults
+    freight_per_cbm = Column(Float, default=180.0)   # USD per m³
+    customs_rate = Column(Float, default=0.0)         # arancel % (0 = free trade agreement)
+    igv_rate = Column(Float, default=18.0)            # IGV Perú %
+    insurance_rate = Column(Float, default=1.0)       # seguro % sobre FOB
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    def to_dict(self):
+        return {
+            "company_name": self.company_name,
+            "tagline": self.tagline,
+            "address": self.address,
+            "phone": self.phone,
+            "email": self.email,
+            "ruc": self.ruc,
+            "logo_url": self.logo_url,
+            "primary_color": self.primary_color,
+            "accent_color": self.accent_color,
+            "default_origin": self.default_origin,
+            "default_destination": self.default_destination,
+            "default_consignee": self.default_consignee,
+            "freight_per_cbm": self.freight_per_cbm,
+            "customs_rate": self.customs_rate,
+            "igv_rate": self.igv_rate,
+            "insurance_rate": self.insurance_rate,
+        }
+
+
+def get_company_settings(db: Session) -> "CompanySettings":
+    """Get the single company settings row, creating defaults if missing."""
+    cs = db.query(CompanySettings).first()
+    if not cs:
+        cs = CompanySettings()
+        db.add(cs)
+        db.commit()
+        db.refresh(cs)
+    return cs
 
 
 # ============================================================

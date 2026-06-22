@@ -1,8 +1,5 @@
 /**
- * EMFOX OMS - CropModal v2
- * Fixed: canvas coordinates now always match displayed image pixels.
- * Approach: draw image directly on canvas (no separate img tag), 
- * so canvas pixels = image pixels after scaling. No timing issues.
+ * LK VISION - CropModal Component
  */
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 
@@ -244,34 +241,34 @@ export default function CropModal({ product, projectId, onClose, onCropApplied }
 
 const styles = {
   overlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 9999, padding: '16px',
+    zIndex: 9999, padding: '16px', backdropFilter: 'blur(8px)',
   },
   modal: {
-    background: '#1a1a2e', border: '1px solid #2d2d4e', borderRadius: '12px',
-    display: 'flex', flexDirection: 'column', gap: '12px',
+    background: '#1a2236', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px',
+    display: 'flex', flexDirection: 'column', gap: '14px',
     maxWidth: '92vw', maxHeight: '95vh', overflow: 'hidden',
-    padding: '16px',
+    padding: '20px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
   },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  title: { color: '#00e5ff', fontWeight: 700, fontSize: '16px' },
-  closeBtn: { background: 'none', border: 'none', color: '#aaa', fontSize: '20px', cursor: 'pointer' },
-  instructions: { color: '#ccc', fontSize: '13px' },
-  canvasWrapper: { overflow: 'auto', maxHeight: '68vh', borderRadius: '6px', background: '#000' },
+  title: { color: '#00d4ff', fontWeight: 700, fontSize: '16px', letterSpacing: '0.5px' },
+  closeBtn: { background: 'none', border: 'none', color: '#64748b', fontSize: '20px', cursor: 'pointer' },
+  instructions: { color: '#94a3b8', fontSize: '13px' },
+  canvasWrapper: { overflow: 'auto', maxHeight: '68vh', borderRadius: '10px', background: '#0a0f1e', border: '1px solid rgba(255,255,255,0.05)' },
   canvas: { display: 'block', maxWidth: '100%' },
   coordsBar: {
-    color: '#7ec8e3', fontSize: '12px', fontFamily: 'monospace',
-    background: '#0d0d1a', padding: '6px 10px', borderRadius: '6px',
+    color: '#00d4ff', fontSize: '12px', fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+    background: '#0a0f1e', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)',
   },
-  error: { color: '#ff6b6b', fontSize: '13px' },
+  error: { color: '#ef4444', fontSize: '13px' },
   footer: { display: 'flex', gap: '10px', justifyContent: 'flex-end' },
   cancelBtn: {
-    padding: '8px 18px', borderRadius: '8px', border: '1px solid #444',
-    background: '#2a2a3e', color: '#ccc', cursor: 'pointer', fontSize: '14px',
+    padding: '10px 20px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)',
+    background: '#111827', color: '#94a3b8', cursor: 'pointer', fontSize: '14px', transition: 'all 0.2s',
   },
   applyBtn: {
-    padding: '8px 18px', borderRadius: '8px', border: 'none',
-    background: '#00e5ff', color: '#000', cursor: 'pointer', fontSize: '14px', fontWeight: 700,
+    padding: '10px 20px', borderRadius: '10px', border: 'none',
+    background: 'linear-gradient(135deg, #00d4ff, #0099cc)', color: '#0a0f1e', cursor: 'pointer', fontSize: '14px', fontWeight: 700, transition: 'all 0.2s',
   },
 };

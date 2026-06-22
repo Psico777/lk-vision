@@ -1,7 +1,5 @@
 /**
- * EMFOX OMS - ImageUploader Component
- * Zona drag-and-drop para subir fotos de productos.
- * Soporta múltiples imágenes, preview, y envío al backend.
+ * LK VISION - ImageUploader Component
  */
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';

@@ -1,8 +1,5 @@
 """
-EMFOX OMS v2 - Aplicación Principal FastAPI
-============================================
-Sistema de Procesamiento de Pedidos Inteligente con
-persistencia, colaboración en tiempo real y Smart Crop.
+LK VISION - Order Management System (FastAPI)
 """
 
 from pathlib import Path
@@ -18,12 +15,8 @@ from app.database import init_db
 # INICIALIZACIÓN DE LA APP
 # ============================================================
 app = FastAPI(
-    title="EMFOX OMS v2 - Order Management System",
-    description=(
-        "Sistema inteligente de procesamiento de pedidos para "
-        "Emfox Yiwu Trade Co., Ltd. Real-time collaboration, "
-        "Smart Crop AI, persistent projects."
-    ),
+    title="LK VISION - Order Management System",
+    description="Sistema inteligente de gestión de pedidos con IA, colaboración en tiempo real y Smart Crop.",
     version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -65,8 +58,8 @@ app.include_router(router)
 @app.get("/")
 async def root():
     return {
-        "system": "EMFOX OMS",
-        "company": "EMFOX YIWU TRADE CO., LTD",
+        "system": "LK VISION OMS",
+        "company": "LK VISION",
         "version": "2.0.0",
         "status": "operational",
         "docs": "/docs",
@@ -92,8 +85,8 @@ if frontend_dist.exists():
     @app.get("/app", include_in_schema=False)
     @app.get("/app/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str = ""):
-        file_path = frontend_dist / full_path
-        if full_path and file_path.is_file():
+        file_path = (frontend_dist / full_path).resolve()
+        if full_path and file_path.is_file() and str(file_path).startswith(str(frontend_dist.resolve())):
             return FileResponse(file_path)
         return FileResponse(frontend_dist / "index.html")
     
