@@ -14,6 +14,10 @@
 ![Gemini AI](https://img.shields.io/badge/Gemini_AI-2.5_Flash-7c3aed?logo=google&logoColor=white)
 ![License](https://img.shields.io/badge/Licencia-Comercial-success)
 
+### [🌐 Probar la Demo en Vivo →](https://lkvision.eleka.me)
+
+[![Demo](https://img.shields.io/badge/▶_DEMO_EN_VIVO-lkvision.eleka.me-7c3aed?style=for-the-badge)](https://lkvision.eleka.me)
+
 </div>
 
 ---
